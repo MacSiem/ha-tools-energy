@@ -1,0 +1,2332 @@
+/* HA Tools split — ha-energy-optimizer v4.0.0 (2026-05-10) — single-tool standalone repo */
+(function() {
+'use strict';
+
+// -- HA Tools Persistence (stub -- full impl in ha-tools-panel.js) --
+window._haToolsPersistence = window._haToolsPersistence || { _cache: {}, _hass: null, setHass(h) { this._hass = h; }, async save(k, d) { try { localStorage.setItem('ha-energy-optimizer-' + k, JSON.stringify(d)); } catch(e) { console.debug('[ha-energy-optimizer] caught:', e); } }, async load(k) { try { const r = localStorage.getItem('ha-energy-optimizer-' + k); return r ? JSON.parse(r) : null; } catch(e) { return null; } }, loadSync(k) { try { const r = localStorage.getItem('ha-energy-optimizer-' + k); return r ? JSON.parse(r) : null; } catch(e) { return null; } } };
+
+// -- HA Tools Escape helper (fallback) --
+const _esc = window._haToolsEsc || ((s) => String(s == null ? '' : s).replace(/[&<>"\']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
+
+/* ===== HA Tools split — inline shared infrastructure ===== */
+// Bento Design System CSS (inline copy — keeps tool standalone)
+if (typeof window !== 'undefined' && !window.HAToolsBentoCSS) {
+  window.HAToolsBentoCSS = `
+/* ═══════════════════════════════════════════════
+   HA Tools — Bento Design System v1.0
+   ═══════════════════════════════════════════════ */
+
+/* ── CSS Custom Properties ───────────────────── */
+:host {
+  /* Primary palette */
+  --bento-primary: #3B82F6;
+  --bento-primary-hover: #2563EB;
+  --bento-primary-light: rgba(59, 130, 246, 0.08);
+  --bento-success: #10B981;
+  --bento-success-light: rgba(16, 185, 129, 0.08);
+  --bento-error: #EF4444;
+  --bento-error-light: rgba(239, 68, 68, 0.08);
+  --bento-warning: #F59E0B;
+  --bento-warning-light: rgba(245, 158, 11, 0.08);
+
+  /* Theme — maps to HA theme vars with light fallbacks */
+  --bento-bg: var(--primary-background-color, #F8FAFC);
+  --bento-card: var(--card-background-color, #FFFFFF);
+  --bento-border: var(--divider-color, #E2E8F0);
+  --bento-text: var(--primary-text-color, #1E293B);
+  --bento-text-secondary: var(--secondary-text-color, #64748B);
+  --bento-text-muted: var(--disabled-text-color, #94A3B8);
+
+  /* Radii */
+  --bento-radius-xs: 6px;
+  --bento-radius-sm: 10px;
+  --bento-radius-md: 16px;
+
+  /* Shadows */
+  --bento-shadow-sm: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06);
+  --bento-shadow-md: 0 4px 12px rgba(0,0,0,0.05), 0 2px 4px rgba(0,0,0,0.04);
+  --bento-shadow-lg: 0 8px 25px rgba(0,0,0,0.06), 0 4px 10px rgba(0,0,0,0.04);
+
+  /* Transition */
+  --bento-transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Typography */
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  display: block;
+  color: var(--bento-text);
+}
+
+/* ── Dark mode ───────────────────────────────── */
+@media (prefers-color-scheme: dark) {
+  :host {
+    --bento-bg: var(--primary-background-color, #1a1a2e);
+    --bento-card: var(--card-background-color, #16213e);
+    --bento-border: var(--divider-color, #2a2a4a);
+    --bento-text: var(--primary-text-color, #e0e0e0);
+    --bento-text-secondary: var(--secondary-text-color, #a0a0b0);
+    --bento-text-muted: var(--disabled-text-color, #6a6a7a);
+    --bento-shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
+    --bento-shadow-md: 0 4px 12px rgba(0,0,0,0.4);
+    --bento-primary-light: rgba(59,130,246,0.15);
+    --bento-success-light: rgba(16,185,129,0.15);
+    --bento-error-light: rgba(239,68,68,0.15);
+    --bento-warning-light: rgba(245,158,11,0.15);
+    color-scheme: dark !important;
+  }
+  .card, .card-container, .main-card, .exporter-card, .security-card, .reports-card, .storage-card, .chore-card, .cry-card, .backup-card, .network-card, .sentence-card, .energy-card, .panel-card {
+    background: var(--bento-card) !important; color: var(--bento-text) !important; border-color: var(--bento-border) !important;
+  }
+  input, select, textarea { background: var(--bento-bg); color: var(--bento-text); border-color: var(--bento-border); }
+  .stat, .stat-card, .summary-card, .metric-card, .kpi-card, .health-card { background: var(--bento-bg); border-color: var(--bento-border); }
+  .tab-content, .section { color: var(--bento-text); }
+  table th { background: var(--bento-bg); color: var(--bento-text-secondary); border-color: var(--bento-border); }
+  table td { color: var(--bento-text); border-color: var(--bento-border); }
+  tr:hover td { background: rgba(59,130,246,0.08); }
+  .empty-state, .no-data { color: var(--bento-text-secondary); }
+  .schedule-section, .settings-section, .detail-panel, .details, .device-detail { background: var(--bento-bg); border-color: var(--bento-border); }
+  .addon-list, .content-item { background: rgba(255,255,255,0.05); }
+  .chart-container { background: var(--bento-bg); border-color: var(--bento-border); }
+  pre, code { background: #1e293b !important; color: #e2e8f0 !important; }
+}
+
+/* ── Reset ───────────────────────────────────── */
+* { box-sizing: border-box; }
+
+/* ── Main Card Wrapper ───────────────────────── */
+.card {
+  background: var(--bento-card);
+  border: 1px solid var(--bento-border);
+  border-radius: var(--bento-radius-md);
+  box-shadow: var(--bento-shadow-sm);
+  color: var(--bento-text);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* ── Header ──────────────────────────────────── */
+.header {
+  padding: 16px 20px 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.header-icon { font-size: 22px; }
+.header-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--bento-text);
+}
+.header-badge {
+  margin-left: auto;
+  background: var(--bento-border);
+  color: var(--bento-text-secondary);
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 20px;
+  font-weight: 500;
+}
+.content { padding: 16px 20px 20px; }
+
+/* ── Tabs (Bento unified) ────────────────────── */
+.tabs, .tab-bar, .tab-nav, .tab-header {
+  display: flex !important;
+  gap: 4px !important;
+  border-bottom: 2px solid var(--bento-border, var(--divider-color, #334155)) !important;
+  padding: 0 4px !important;
+  margin-bottom: 20px !important;
+  overflow-x: auto !important; overflow-y: hidden !important; -webkit-overflow-scrolling: touch !important;
+  flex-wrap: nowrap !important;
+}
+.tab, .tab-btn, .tab-button, .dtab {
+  padding: 10px 18px !important;
+  border: none !important;
+  background: transparent !important;
+  cursor: pointer !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  font-family: 'Inter', sans-serif !important;
+  color: var(--bento-text-secondary, var(--secondary-text-color, #94A3B8)) !important;
+  border-bottom: 2px solid transparent !important;
+  margin-bottom: -2px !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  white-space: nowrap !important;
+  border-radius: 0 !important;
+  flex: none !important;
+}
+.tab:hover, .tab-btn:hover, .tab-button:hover, .dtab:hover {
+  color: var(--bento-primary, #3B82F6) !important;
+  background: rgba(59, 130, 246, 0.08) !important;
+}
+.tab.active, .tab-btn.active, .tab-button.active, .dtab.active {
+  color: var(--bento-primary, #3B82F6) !important;
+  border-bottom-color: var(--bento-primary, #3B82F6) !important;
+  background: rgba(59, 130, 246, 0.04) !important;
+  font-weight: 600 !important;
+}
+
+/* ── Tab content animation ───────────────────── */
+.tab-content {
+  display: block;
+}
+.tab-content.active {
+  animation: bentoFadeIn 0.3s ease-out;
+}
+@keyframes bentoFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Stat / KPI cards ────────────────────────── */
+.stat-card, .stat-item, .metric-card, .kpi-card {
+  background: var(--bento-card, var(--card-background-color, #1E293B)) !important;
+  border: 1px solid var(--bento-border, var(--divider-color, #334155)) !important;
+  border-radius: var(--bento-radius-sm, 10px) !important;
+  padding: 16px !important;
+  text-align: center !important;
+  transition: var(--bento-transition);
+}
+.stat-card:hover, .stat-item:hover, .metric-card:hover, .kpi-card:hover {
+  box-shadow: var(--bento-shadow-md);
+}
+.stat-icon { font-size: 20px; margin-bottom: 4px; }
+.stat-value, .stat-val, .metric-value, .kpi-val {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--bento-text);
+}
+.stat-label, .stat-lbl, .metric-label, .kpi-lbl {
+  font-size: 11px;
+  color: var(--bento-text-secondary);
+  margin-top: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+}
+
+/* ── Overview grid (2×2 stat layout) ─────────── */
+.overview-grid, .stats-grid, .summary-grid, .stat-cards, .kpi-grid, .metrics-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+/* ── Section headers ─────────────────────────── */
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--bento-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  margin: 12px 0 8px;
+}
+
+/* ── Loading / Empty / Info ──────────────────── */
+.loading-bar {
+  height: 3px;
+  background: linear-gradient(90deg, var(--bento-primary), transparent);
+  border-radius: 2px;
+  animation: bentoLoad 1s infinite;
+  margin-bottom: 8px;
+}
+@keyframes bentoLoad { 0% { background-position: 0; } 100% { background-position: 200px; } }
+
+.empty-state, .no-data, .no-results {
+  text-align: center;
+  color: var(--bento-text-secondary);
+  padding: 32px 16px;
+  font-size: 13px;
+  background: var(--bento-bg);
+  border-radius: var(--bento-radius-sm);
+}
+.info-note, .tip-box {
+  font-size: 12px;
+  color: var(--bento-text-secondary);
+  background: var(--bento-bg);
+  border-radius: var(--bento-radius-sm);
+  padding: 8px 10px;
+  border-left: 3px solid var(--bento-primary);
+  margin-top: 8px;
+}
+.last-updated {
+  font-size: 11px;
+  color: var(--bento-text-muted);
+  text-align: right;
+  margin-top: 8px;
+}
+
+/* ── Buttons ─────────────────────────────────── */
+.refresh-btn {
+  background: var(--bento-border);
+  border: none;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 11px;
+  color: var(--bento-text-secondary);
+  cursor: pointer;
+  font-weight: 500;
+  transition: var(--bento-transition);
+}
+.refresh-btn:hover { background: var(--bento-primary); color: white; }
+
+.toggle-btn, .action-btn {
+  background: var(--bento-primary);
+  border: none;
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 12px;
+  color: white;
+  cursor: pointer;
+  font-weight: 500;
+  transition: var(--bento-transition);
+}
+.toggle-btn:hover, .action-btn:hover { opacity: .85; }
+
+.send-btn, .btn-primary {
+  width: 100%;
+  background: var(--bento-primary);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--bento-transition);
+}
+.send-btn:hover, .btn-primary:hover {
+  background: var(--bento-primary-hover);
+  transform: translateY(-1px);
+}
+.send-btn:active, .btn-primary:active { transform: translateY(0); }
+.send-btn:disabled, .btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ── Badges / Status ─────────────────────────── */
+.badge, .status-badge, .tag, .chip {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  display: inline-block;
+}
+.badge-ok, .badge-success { background: var(--bento-success-light); color: var(--bento-success); }
+.badge-er, .badge-error   { background: var(--bento-error-light);   color: var(--bento-error); }
+.badge-warn, .badge-warning { background: var(--bento-warning-light); color: var(--bento-warning); }
+.badge-info { background: var(--bento-primary-light); color: var(--bento-primary); }
+
+/* ── Count badges (inline) ───────────────────── */
+.count-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+.error-badge { background: rgba(239,68,68,0.13); color: var(--bento-error); }
+.warn-badge  { background: rgba(245,158,11,0.13); color: var(--bento-warning); }
+.info-badge  { background: rgba(59,130,246,0.13); color: var(--bento-primary); }
+.ok-badge    { background: rgba(16,185,129,0.13); color: var(--bento-success); }
+
+/* ── Tables ───────────────────────────────────── */
+table { width: 100%; border-collapse: separate; border-spacing: 0; }
+th {
+  background: var(--bento-bg);
+  color: var(--bento-text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 2px solid var(--bento-border);
+}
+td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--bento-border);
+  color: var(--bento-text);
+  font-size: 13px;
+}
+tr:hover td { background: var(--bento-primary-light); }
+
+/* ── Forms / Inputs ──────────────────────────── */
+input, select, textarea {
+  padding: 8px 12px;
+  border: 1.5px solid var(--bento-border);
+  border-radius: var(--bento-radius-xs);
+  background: var(--bento-card);
+  color: var(--bento-text);
+  font-size: 13px;
+  font-family: 'Inter', sans-serif;
+  transition: var(--bento-transition);
+  outline: none;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: var(--bento-primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* ── Code blocks ─────────────────────────────── */
+code {
+  background: var(--bento-border);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 12px;
+}
+pre {
+  background: #1e293b;
+  color: #e2e8f0;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  overflow-x: auto;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ── Grid layouts ────────────────────────────── */
+.schedule-grid, .send-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.schedule-card, .send-card, .info-card {
+  background: var(--bento-bg);
+  border: 1px solid var(--bento-border);
+  border-radius: var(--bento-radius-sm);
+  padding: 14px;
+}
+
+/* ── Log entries ─────────────────────────────── */
+.log-entry {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 4px 6px;
+  padding: 8px;
+  border-radius: var(--bento-radius-sm);
+  margin-bottom: 4px;
+  font-size: 12px;
+  min-width: 0;
+  overflow: hidden;
+}
+.error-entry { background: var(--bento-error-light); border: 1px solid rgba(239,68,68,0.13); }
+.warn-entry  { background: var(--bento-warning-light); border: 1px solid rgba(245,158,11,0.13); }
+.log-time { color: var(--bento-text-muted); flex-shrink: 0; }
+.log-domain {
+  font-weight: 600;
+  flex-shrink: 1;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-all;
+}
+.error-domain { color: var(--bento-error); }
+.warn-domain  { color: var(--bento-warning); }
+.log-msg {
+  color: var(--bento-text-secondary);
+  flex-basis: 100%;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  min-width: 0;
+}
+
+/* ── Send status ─────────────────────────────── */
+.send-status {
+  padding: 10px 14px;
+  border-radius: var(--bento-radius-sm);
+  margin-top: 12px;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: center;
+}
+.send-status.sending { background: var(--bento-primary-light); color: var(--bento-primary); }
+.send-status.success { background: var(--bento-success-light); color: var(--bento-success); }
+.send-status.error   { background: var(--bento-error-light);   color: var(--bento-error); }
+
+/* ── Scrollbar ───────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--bento-border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--bento-text-muted); }
+
+/* ── Animations ──────────────────────────────── */
+@keyframes bentoSpin { to { transform: rotate(360deg); } }
+@keyframes bentoPulse { 0%,100% { opacity: 1; } 50% { opacity: .5; } }
+
+/* ── Mobile — 768 px ─────────────────────────── */
+@media (max-width: 768px) {
+  .content { padding: 12px; }
+  .tabs { flex-wrap: nowrap !important; overflow-x: auto !important; -webkit-overflow-scrolling: touch !important; gap: 2px !important; }
+  .tab, .tab-button, .tab-btn { padding: 6px 10px !important; font-size: 12px !important; white-space: nowrap !important; }
+  .overview-grid, .stats-grid, .summary-grid, .stat-cards, .kpi-grid, .metrics-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .stat-value, .stat-val, .kpi-val, .metric-val { font-size: 18px !important; }
+  .stat-label, .stat-lbl, .kpi-lbl, .metric-lbl { font-size: 10px !important; }
+  .send-grid, .schedule-grid { grid-template-columns: 1fr; }
+  .log-entry { flex-wrap: wrap; gap: 2px 6px; }
+  .log-domain { max-width: 60%; font-size: 11px; }
+  .log-msg { flex-basis: 100%; max-width: 100%; overflow-wrap: anywhere; font-size: 11px; }
+  pre { white-space: pre-wrap; word-break: break-all; max-width: calc(100vw - 80px); overflow-x: auto; }
+  .panels, .board { flex-direction: column; }
+  .column { min-width: unset; }
+  h2 { font-size: 18px; }
+  h3 { font-size: 15px; }
+}
+
+/* ── Mobile — 480 px ─────────────────────────── */
+@media (max-width: 480px) {
+  .tabs { gap: 1px !important; }
+  .tab, .tab-button, .tab-btn { padding: 5px 8px !important; font-size: 11px !important; }
+  .overview-grid, .stats-grid, .summary-grid { grid-template-columns: 1fr 1fr; }
+  .stat-value, .stat-val, .kpi-val { font-size: 16px !important; }
+}
+`;
+}
+// XSS escape singleton (idempotent)
+if (typeof window !== 'undefined') {
+  window._haToolsEsc = window._haToolsEsc || (function(){
+    var MAP = {};
+    MAP[String.fromCharCode(38)] = '&amp;';
+    MAP[String.fromCharCode(60)] = '&lt;';
+    MAP[String.fromCharCode(62)] = '&gt;';
+    MAP[String.fromCharCode(34)] = '&quot;';
+    MAP[String.fromCharCode(39)] = '&#39;';
+    return function(s){ return typeof s === 'string' ? s.replace(/[&<>"']/g, function(c){ return MAP[c]; }) : (s == null ? '' : s); };
+  })();
+}
+/* ============================================================ */
+
+class HaEnergyOptimizer extends HTMLElement {
+  constructor() {
+    super();
+    this._lang = (navigator.language || '').startsWith('pl') ? 'pl' : 'en';
+    this.attachShadow({ mode: 'open' });
+    this._toolId = this.tagName.toLowerCase().replace('ha-', '');
+    // --- Throttle fields ---
+    this._lastRenderTime = 0;
+    this._renderScheduled = false;
+    this._firstHassRender = false;
+    // --- Pagination ---
+    this._currentPage = {};
+    this._pageSize = 15;
+    this._hass = null;
+    this._config = null;
+    this._currentTab = 'dashboard';
+    this._timeRange = 'today'; // 'today' | 'yesterday' | '7days' | '30days' | 'custom'
+    this._energyData = [];
+    this._weeklyData = [];
+    this._recommendations = [];
+    this._comparisonData = null;
+    this._compareMode = 'week'; // 'week' | 'month'
+    this._comparePeriod = 'w-w'; // 'w-w' | 'm-m' | 'y-y'
+    this._longTermData = null; // daily totals for 13 months
+    // --- Real data fields ---
+    this._hasRealData = false;
+    this._currentPowerW = 0;
+    this._statsLoading = false;
+    this._lastStatsFetch = 0;
+    this._energySensorIds = [];    this._charts = {};
+    this._chartJsLoaded = false;
+    this._domBuilt = false;
+    this._lastHtml = '';
+  }
+  disconnectedCallback() {
+    this._destroyAllCharts();
+  }
+
+  static getConfigElement() {
+    return document.createElement('ha-energy-optimizer-editor');
+  }
+
+  getCardSize() { return 8; }
+
+  static getStubConfig() {
+    return {
+      type: 'custom:ha-energy-optimizer',
+      title: 'Energy Optimizer',
+      currency: 'PLN',
+      peak_hours: { start: 6, end: 22 },
+      entities: ['sensor.energy_total', 'sensor.energy_grid']
+    };
+  }
+
+
+
+  _sanitize(str) {
+    if (!str) return str;
+    try { return decodeURIComponent(escape(str)); } catch(e) { return str; }
+  }
+
+
+  get _t() {
+    const T = {
+      pl: {
+        title: 'Optymalizator Energii',
+        loading: 'Wczytywanie...',
+        noData: 'Brak danych',
+        error: 'Błąd',
+        refresh: 'Odśwież',
+        save: 'Zapisz',
+        cancel: 'Anuluj',
+        locale: 'pl-PL',
+      },
+      en: {
+        title: 'Energy Optimizer',
+        loading: 'Loading...',
+        noData: 'No data',
+        error: 'Error',
+        refresh: 'Refresh',
+        save: 'Save',
+        cancel: 'Cancel',
+        locale: 'en-US',
+      },
+    };
+    return T[this._lang] || T.en;
+  }
+
+  setConfig(config) {
+    this._config = { ...config };
+    // Load saved rate settings from localStorage
+    try {
+      const saved = JSON.parse(localStorage.getItem('ha-tools-energy-optimizer-settings') || '{}');
+      if (saved.energy_tariff_mode) this._config.energy_tariff_mode = saved.energy_tariff_mode;
+      if (saved.energy_price) this._config.energy_price = saved.energy_price;
+      if (saved.energy_price_day) this._config.energy_price_day = saved.energy_price_day;
+      if (saved.energy_price_night) this._config.energy_price_night = saved.energy_price_night;
+      if (saved.energy_day_hour_start) this._config.energy_day_hour_start = saved.energy_day_hour_start;
+      if (saved.energy_night_hour_start) this._config.energy_night_hour_start = saved.energy_night_hour_start;
+      if (saved.currency) this._config.currency = saved.currency;
+    } catch(e) { console.debug('[ha-energy-optimizer] caught:', e); }
+    this._domBuilt = false;
+    this._generateFallbackData();
+    this._generateRecommendations();
+    this._generateComparisonData();
+  }
+
+  _getRate(hour, dayOfWeek) {
+    const c = this._config;
+    const mode = c.energy_tariff_mode || 'flat';
+    const dayStart = c.energy_day_hour_start || 6;
+    const nightStart = c.energy_night_hour_start || 22;
+    const isDay = (dayStart < nightStart) ? (hour >= dayStart && hour < nightStart) : (hour >= dayStart || hour < nightStart);
+    const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+    switch (mode) {
+      case 'day_night':
+        return isDay ? (c.energy_price_day || 0.65) : (c.energy_price_night || 0.45);
+      case 'weekday_weekend':
+        return isWeekend ? (c.energy_price_weekend || 0.50) : (c.energy_price_weekday || 0.65);
+      case 'mixed':
+        if (isWeekend) return isDay ? (c.energy_price_we_day || 0.55) : (c.energy_price_we_night || 0.40);
+        return isDay ? (c.energy_price_wd_day || 0.65) : (c.energy_price_wd_night || 0.45);
+      default:
+        return c.energy_price || 0.65;
+    }
+  }
+
+  _getAvgRate() {
+    const c = this._config;
+    const mode = c.energy_tariff_mode || 'flat';
+    if (mode === 'flat') return c.energy_price || 0.65;
+    let sum = 0;
+    for (let dow = 0; dow < 7; dow++) {
+      for (let h = 0; h < 24; h++) {
+        sum += this._getRate(h, dow);
+      }
+    }
+    return sum / 168;
+  }
+
+  _getTimeRangeDates() {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
+    switch (this._timeRange) {
+      case 'yesterday': {
+        const yest = new Date(today); yest.setDate(yest.getDate() - 1);
+        return { start: yest, end: today };
+      }
+      case '7days': {
+        const s = new Date(today); s.setDate(s.getDate() - 7);
+        return { start: s, end: tomorrow };
+      }
+      case '30days': {
+        const s = new Date(today); s.setDate(s.getDate() - 30);
+        return { start: s, end: tomorrow };
+      }
+      default: // 'today'
+        return { start: today, end: tomorrow };
+    }
+  }
+
+  _getTariffLabel() {
+    const c = this._config;
+    const mode = c.energy_tariff_mode || 'flat';
+    const cur = c.currency || 'PLN';
+    const suffix = { 'day_night': ' (day/night)', 'weekday_weekend': ' (weekday/weekend)' };
+    switch (mode) {
+      case 'day_night': return cur + ' ' + (c.energy_price_day || 0.65) + '/' + (c.energy_price_night || 0.45) + (suffix['day_night'] || '');
+      case 'weekday_weekend': return cur + ' ' + (c.energy_price_weekday || 0.65) + '/' + (c.energy_price_weekend || 0.50) + (suffix['weekday_weekend'] || '');
+      case 'mixed': return cur + ' mix';
+      default: return cur + ' @ ' + (c.energy_price || 0.65) + '/kWh';
+    }
+  }
+
+
+  set hass(hass) {
+
+    if (hass?.language) this._lang = hass.language.startsWith('pl') ? 'pl' : 'en';    this._hass = hass;
+    if (!hass) return;
+    if (!this._config) return; // wait for setConfig
+    const now = Date.now();
+    if (!this._firstHassRender) {
+      this._firstHassRender = true;
+      this._updateEnergyData();
+      this._fetchEnergyStats();
+      this._render();
+      this._lastRenderTime = now;
+      return;
+    }
+    if (now - (this._lastRenderTime || 0) < 15000) {
+      if (!this._renderScheduled) {
+        this._renderScheduled = true;
+        setTimeout(() => {
+          this._renderScheduled = false;
+          // Check if energy-relevant state actually changed
+          const powerSensors = Object.entries(hass.states)
+            .filter(([id, s]) => (s.attributes.device_class === 'power' || s.attributes.unit_of_measurement === 'W') && !isNaN(parseFloat(s.state)));
+          const newHash = powerSensors.map(([id, s]) => id + '=' + s.state).join(',');
+          if (newHash === this._lastStateHash) return;
+          this._lastStateHash = newHash;
+          this._updateEnergyData();
+          this._render();
+          this._lastRenderTime = Date.now();
+        }, 10000);
+      }
+      return;
+    }
+      this._updateEnergyData();
+    this._render();
+    this._lastRenderTime = now;
+  }
+
+  async _fetchEnergyStats() {
+    if (!this._hass || !this._hass.callWS) return;
+    if (this._statsLoading) return;
+    this._statsLoading = true;
+
+    try {
+      // Step 1: Find all kWh statistic IDs
+      const allStats = await this._hass.callWS({
+        type: 'recorder/list_statistic_ids',
+        statistic_type: 'sum'
+      });
+      const kwhIds = allStats
+        .filter(s => s.statistics_unit_of_measurement === 'kWh')
+        .filter(s => {
+          const id = s.statistic_id;
+          return !id.includes('_daily') && !id.includes('_weekly') && !id.includes('_monthly') && !id.includes('_last_') && !id.includes('_cost');
+        })
+        .map(s => s.statistic_id);
+
+      if (kwhIds.length === 0) {
+        this._statsLoading = false;
+        this._hasRealData = false; this._recommendations = []; return; // No energy sensors
+      }
+
+      this._energySensorIds = kwhIds;
+
+      // Step 2: Determine date range based on _timeRange
+      const now = new Date();
+      const { start: rangeStart, end: rangeEnd } = this._getTimeRangeDates();
+      // Always fetch at least 7 days for weekly data and comparison
+      const fetchStart = new Date(Math.min(rangeStart.getTime(), now.getTime() - 7 * 24 * 3600000));
+
+      const stats = await this._hass.callWS({
+        type: 'recorder/statistics_during_period',
+        start_time: fetchStart.toISOString(),
+        end_time: now.toISOString(),
+        statistic_ids: kwhIds,
+        period: 'hour',
+        types: ['change']
+      });
+
+      // Step 3: Aggregate all sensors into hourly totals for selected time range
+      const hourlySelected = {};
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const hourlyToday = new Array(24).fill(0);
+
+      // Step 4: Aggregate into weekly data (7 days x 24 hours)
+      const weeklyHourly = Array.from({length: 7}, () => new Array(24).fill(0));
+
+      kwhIds.forEach(id => {
+        const sensorData = stats[id] || [];
+        // Check unit - convert Wh to kWh if needed
+        const attrs = this._hass.states?.[id]?.attributes || {};
+        const isWh = attrs.unit_of_measurement === 'Wh';
+        sensorData.forEach(entry => {
+          let change = Math.max(0, entry.change ?? 0); // ignore negative (meter resets)
+          if (isWh) change /= 1000; // Wh → kWh
+          const entryDate = new Date(entry.start);
+          const hour = entryDate.getHours();
+          const dateKey = `${entryDate.getFullYear()}-${String(entryDate.getMonth()+1).padStart(2,'0')}-${String(entryDate.getDate()).padStart(2,'0')}`;
+
+          // Selected time range data (for display)
+          if (entryDate >= rangeStart && entryDate < rangeEnd) {
+            if (!hourlySelected[dateKey]) hourlySelected[dateKey] = new Array(24).fill(0);
+            hourlySelected[dateKey][hour] += change;
+          }
+
+          // Today's data
+          if (entryDate >= todayStart) {
+            hourlyToday[hour] += change;
+          }
+
+          // Weekly data - find which day (0=oldest, 6=today)
+          const dayDiff = Math.floor((now - entryDate) / 86400000);
+          const dayIndex = 6 - dayDiff;
+          if (dayIndex >= 0 && dayIndex < 7) {
+            weeklyHourly[dayIndex][hour] += change;
+          }
+        });
+      });
+
+      // For display, use either today's data or aggregated range data depending on _timeRange
+      if (this._timeRange === 'today') {
+        this._energyData = hourlyToday;
+      } else {
+        // Aggregate all hourly data from selected range into one 24-hour view
+        const aggregated = new Array(24).fill(0);
+        const daysInRange = Object.values(hourlySelected);
+        daysInRange.forEach(dayData => {
+          dayData.forEach((kwh, hour) => {
+            aggregated[hour] += kwh;
+          });
+        });
+        if (daysInRange.length > 0) {
+          this._energyData = aggregated.map(h => h / daysInRange.length); // Average per hour
+        } else {
+          this._energyData = hourlyToday; // Fallback to today
+        }
+      }
+      this._weeklyData = weeklyHourly;
+      this._hasRealData = true;
+
+      // Step 5: Fetch long-term daily data (13 months) for comparison modes
+      try {
+        const yearAgo = new Date(now.getTime() - 400 * 24 * 3600000);
+        const longStats = await this._hass.callWS({
+          type: 'recorder/statistics_during_period',
+          start_time: yearAgo.toISOString(),
+          end_time: now.toISOString(),
+          statistic_ids: kwhIds,
+          period: 'day',
+          types: ['change']
+        });
+        // Aggregate into daily totals keyed by 'YYYY-MM-DD'
+        const dailyMap = {};
+        kwhIds.forEach(id => {
+          const sensorData = longStats[id] || [];
+          const attrs = this._hass.states?.[id]?.attributes || {};
+          const isWh = attrs.unit_of_measurement === 'Wh';
+          sensorData.forEach(entry => {
+            let change = Math.max(0, entry.change ?? 0);
+            if (isWh) change /= 1000;
+            const d = new Date(entry.start);
+            const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+            dailyMap[key] = (dailyMap[key] || 0) + change;
+          });
+        });
+        this._longTermData = dailyMap;
+      } catch (e) {
+        console.warn('Energy Optimizer: Long-term fetch failed:', e.message);
+        this._longTermData = {};
+      }
+
+      // Recalculate dependent data
+      this._generateRecommendations();
+      this._generateComparisonData();
+      // Update DOM in place (no full rebuild)
+      if (this._domBuilt) {
+        this._updateDomValues();
+        // Redraw chart only after fresh data fetch
+        this._showTab(this._currentTab);
+      }
+
+    } catch (err) {
+      console.warn('Energy Optimizer: Failed to fetch stats, using demo fallback:', err.message);
+      // Keep existing demo data as fallback
+    }
+    this._statsLoading = false;
+  }
+
+  _updateEnergyData() {
+    if (!this._hass) return;
+    // Update current power draw from power sensors
+    const powerSensors = Object.entries(this._hass.states)
+      .filter(([id, s]) => {
+        const dc = s.attributes.device_class;
+        const unit = s.attributes.unit_of_measurement;
+        return (dc === 'power' || unit === 'W') && !isNaN(parseFloat(s.state));
+      });
+    this._currentPowerW = powerSensors.reduce((sum, [, s]) => sum + parseFloat(s.state), 0);
+
+    // Fetch stats every 5 minutes (not on every hass update)
+    const now = Date.now();
+    if (!this._lastStatsFetch || (now - this._lastStatsFetch) > 300000) {
+      this._lastStatsFetch = now;
+      this._fetchEnergyStats();
+    }
+  }
+
+  _generateFallbackData() {
+    if (this._energyData && this._energyData.length > 0) return; // Use cached data
+    // Generate 24-hour energy data
+    const rng = this._seededRandom('energy-demo-data');
+    this._energyData = [];
+    const baseUsage = 0.5;
+    for (let hour = 0; hour < 24; hour++) {
+      let usage = baseUsage;
+      if (hour >= 6 && hour <= 9) usage += 1.2; // Morning peak
+      if (hour >= 18 && hour <= 21) usage += 1.8; // Evening peak
+      if (hour >= 23 || hour <= 5) usage -= 0.3; // Night low
+      usage += rng() * 0.3 - 0.15; // Random variation
+      this._energyData.push(Math.max(0.1, usage));
+    }
+
+    // Generate weekly data (7 days x 24 hours)
+    this._weeklyData = [];
+    for (let day = 0; day < 7; day++) {
+      const dayData = [];
+      for (let hour = 0; hour < 24; hour++) {
+        let usage = baseUsage;
+        if (hour >= 6 && hour <= 9) usage += (day < 5 ? 1.2 : 0.8); // Weekday vs weekend
+        if (hour >= 18 && hour <= 21) usage += (day < 5 ? 1.8 : 1.0);
+        if (hour >= 23 || hour <= 5) usage -= 0.3;
+        usage += rng() * 0.3 - 0.15;
+        dayData.push(Math.max(0.1, usage));
+      }
+      this._weeklyData.push(dayData);
+    }
+  }
+
+  _generateRecommendations() {
+    if (!this._hasRealData) { this._recommendations = []; return; }
+    const peakHourStart = this._config.peak_hours?.start || 6;
+    const peakHourEnd = this._config.peak_hours?.end || 22;
+    const avgPeakUsage = this._energyData.slice(peakHourStart, peakHourEnd).reduce((a, b) => a + b, 0) / (peakHourEnd - peakHourStart);
+    const avgOffPeakUsage = this._energyData.slice(0, peakHourStart).concat(this._energyData.slice(peakHourEnd)).reduce((a, b) => a + b, 0) / (24 - (peakHourEnd - peakHourStart));
+
+    this._recommendations = [
+      {
+        id: 1,
+        icon: '🧺',
+        title: `Shift laundry to off-peak hours`,
+        description: `Your peak usage is ${peakHourStart}-${peakHourEnd}. Running laundry at night saves up to 30% on that load.`,
+        savings: 12.5,
+        difficulty: 'easy',
+        impact: 'high'
+      },
+      {
+        id: 2,
+        icon: '🍽️',
+        title: 'Use dishwasher in off-peak time',
+        description: 'Schedule dishwasher runs for morning or late evening when rates are lower.',
+        savings: 8.3,
+        difficulty: 'easy',
+        impact: 'medium'
+      },
+      {
+        id: 3,
+        icon: '🌡️',
+        title: 'Optimize thermostat settings',
+        description: `Reduce heating by 1Â°C during peak hours (${peakHourStart}-${peakHourEnd}) for consistent savings.`,
+        savings: 15.0,
+        difficulty: 'medium',
+        impact: 'high'
+      },
+      {
+        id: 4,
+        icon: '💡',
+        title: 'Replace with LED lighting',
+        description: 'Your evening usage spikes significantly. LED bulbs reduce lighting energy by 75%.',
+        savings: 6.2,
+        difficulty: 'medium',
+        impact: 'medium'
+      },
+      {
+        id: 5,
+        icon: '🔌',
+        title: 'Reduce standby power consumption',
+        description: 'Use smart power strips to eliminate phantom loads from devices in standby mode.',
+        savings: 4.5,
+        difficulty: 'easy',
+        impact: 'low'
+      }
+    ];
+  }
+
+  // Helper: sum dailyMap values in date range [from, to)
+  _sumRange(from, to) {
+    const dm = this._longTermData || {};
+    let sum = 0;
+    const d = new Date(from);
+    while (d < to) {
+      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      sum += dm[key] || 0;
+      d.setDate(d.getDate() + 1);
+    }
+    return sum;
+  }
+
+  // Helper: get daily totals array in date range [from, to)
+  _dailyRange(from, to) {
+    const dm = this._longTermData || {};
+    const result = [];
+    const d = new Date(from);
+    while (d < to) {
+      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      result.push(dm[key] || 0);
+      d.setDate(d.getDate() + 1);
+    }
+    return result;
+  }
+
+  _generateComparisonData() {
+    if (!this._energyData || this._energyData.length === 0) return;
+    const rate = this._getAvgRate();
+    const currency = this._config.currency || 'PLN';
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    // === Week-to-week ===
+    const thisWeekStart = new Date(today); thisWeekStart.setDate(today.getDate() - today.getDay() + 1); // Monday
+    if (thisWeekStart > today) thisWeekStart.setDate(thisWeekStart.getDate() - 7);
+    const lastWeekStart = new Date(thisWeekStart); lastWeekStart.setDate(lastWeekStart.getDate() - 7);
+    const thisWeekKwh = this._sumRange(thisWeekStart, today);
+    const lastWeekKwh = this._sumRange(lastWeekStart, thisWeekStart);
+    const thisWeekDaily = this._dailyRange(thisWeekStart, today);
+    const lastWeekDaily = this._dailyRange(lastWeekStart, thisWeekStart);
+
+    // === Month-to-month ===
+    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const thisMonthKwh = this._sumRange(thisMonthStart, today);
+    const lastMonthKwh = this._sumRange(lastMonthStart, thisMonthStart);
+    const thisMonthDaily = this._dailyRange(thisMonthStart, today);
+    const lastMonthDaily = this._dailyRange(lastMonthStart, thisMonthStart);
+
+    // === Year-to-year (same month last year vs this year) ===
+    const lastYearMonthStart = new Date(now.getFullYear() - 1, now.getMonth(), 1);
+    const lastYearMonthEnd = new Date(now.getFullYear() - 1, now.getMonth() + 1, 0);
+    lastYearMonthEnd.setDate(lastYearMonthEnd.getDate() + 1); // exclusive end
+    const lastYearMonthKwh = this._sumRange(lastYearMonthStart, lastYearMonthEnd) || 0;
+    const lastYearMonthDaily = this._dailyRange(lastYearMonthStart, lastYearMonthEnd) || [];
+
+    // Monthly totals for last 12 months (for chart)
+    const monthlyTotals = [];
+    for (let i = 11; i >= 0; i--) {
+      const ms = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const me = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
+      const label = ms.toLocaleString('default', { month: 'short', year: '2-digit' });
+      monthlyTotals.push({ label, kwh: this._sumRange(ms, me) || 0 });
+    }
+
+    // Weekly totals for last 8 weeks
+    const weeklyTotals = [];
+    for (let i = 7; i >= 0; i--) {
+      const ws = new Date(thisWeekStart); ws.setDate(ws.getDate() - i * 7);
+      const we = new Date(ws); we.setDate(we.getDate() + 7);
+      const wn = ws.toLocaleDateString('default', { day: 'numeric', month: 'short' });
+      weeklyTotals.push({ label: wn, kwh: this._sumRange(ws, we > now ? today : we) || 0 });
+    }
+
+    this._comparisonData = {
+      rate, currency,
+      // Week
+      thisWeekKwh, lastWeekKwh, thisWeekDaily: thisWeekDaily || [], lastWeekDaily: lastWeekDaily || [],
+      // Month
+      thisMonthKwh, lastMonthKwh, thisMonthDaily: thisMonthDaily || [], lastMonthDaily: lastMonthDaily || [],
+      // Year
+      lastYearMonthKwh, lastYearMonthDaily, thisMonthLabel: now.toLocaleString('default', { month: 'long' }),
+      // Aggregates
+      monthlyTotals, weeklyTotals
+    };
+  }
+
+  _renderCompareBody() {
+    const c = this._comparisonData;
+    if (!c) return '<div style="text-align:center;color:var(--bento-text-secondary);padding:40px">Ładowanie danych...</div>';
+    const mode = this._comparePeriod;
+    const r = c.rate;
+    const cur = c.currency;
+
+    let currentKwh, prevKwh, currentLabel, prevLabel, chartLabels, chartCurrent, chartPrev;
+
+    if (mode === 'w-w') {
+      currentKwh = c.thisWeekKwh; prevKwh = c.lastWeekKwh;
+      currentLabel = 'Ten tydzień'; prevLabel = 'Poprzedni tydz.';
+      const days = ['Pn','Wt','Śr','Cz','Pt','So','Nd'];
+      chartLabels = days.slice(0, Math.max(c.thisWeekDaily.length, c.lastWeekDaily.length));
+      chartCurrent = c.thisWeekDaily; chartPrev = c.lastWeekDaily;
+    } else if (mode === 'm-m') {
+      currentKwh = c.thisMonthKwh; prevKwh = c.lastMonthKwh;
+      currentLabel = 'Ten miesiąc'; prevLabel = 'Poprzedni mies.';
+      const maxLen = Math.max(c.thisMonthDaily.length, c.lastMonthDaily.length);
+      chartLabels = Array.from({length: maxLen}, (_, i) => i + 1);
+      chartCurrent = c.thisMonthDaily; chartPrev = c.lastMonthDaily;
+    } else { // y-y
+      currentKwh = c.thisMonthKwh; prevKwh = c.lastYearMonthKwh;
+      currentLabel = `${c.thisMonthLabel} ${new Date().getFullYear()}`;
+      prevLabel = `${c.thisMonthLabel} ${new Date().getFullYear() - 1}`;
+      const maxLen = Math.max(c.thisMonthDaily.length, c.lastYearMonthDaily.length);
+      chartLabels = Array.from({length: maxLen}, (_, i) => i + 1);
+      chartCurrent = c.thisMonthDaily; chartPrev = c.lastYearMonthDaily;
+    }
+
+    const diff = prevKwh > 0 ? ((currentKwh - prevKwh) / prevKwh * 100) : 0;
+    const isUp = currentKwh > prevKwh;
+    const costDiff = (currentKwh - prevKwh) * r;
+
+    return `
+      <div class="comparison-grid">
+        <div class="comparison-card">
+          <div class="comparison-title">${currentLabel}</div>
+          <div class="comparison-value">${currentKwh.toFixed(1)}</div>
+          <div class="comparison-title">kWh • ${(currentKwh * r).toFixed(2)} ${cur}</div>
+        </div>
+        <div class="comparison-card">
+          <div class="comparison-title">${prevLabel}</div>
+          <div class="comparison-value">${prevKwh.toFixed(1)}</div>
+          <div class="comparison-title">kWh • ${(prevKwh * r).toFixed(2)} ${cur}</div>
+          <div class="change-indicator ${isUp ? 'change-up' : 'change-down'}">
+            ${isUp ? '▲' : '▼'} ${Math.abs(diff).toFixed(1)}%
+          </div>
+        </div>
+      </div>
+
+      <div class="chart-container">
+        <div class="chart-title">
+          <span>${currentLabel} vs ${prevLabel}</span>
+          <span style="font-size:12px;color:var(--bento-text-secondary);font-weight:400">kWh/dzień</span>
+        </div>
+        <canvas id="comparison-chart"></canvas>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-item">
+          <div class="stat-label">Różnica kosztów</div>
+          <div class="stat-value" style="color:${isUp ? 'var(--bento-error)' : 'var(--bento-success)'}">${costDiff >= 0 ? '+' : ''}${costDiff.toFixed(2)} ${cur}</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">${this._lang === 'pl' ? '\u015Ar. dzienny koszt (teraz)' : 'Avg. daily cost (current)'}</div>
+          <div class="stat-value">${chartCurrent.length > 0 ? ((currentKwh / chartCurrent.length) * r).toFixed(2) : '—'} ${cur}</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">${this._lang === 'pl' ? '\u015Ar. dzienny koszt (poprz.)' : 'Avg. daily cost (previous)'}</div>
+          <div class="stat-value">${chartPrev.length > 0 ? ((prevKwh / chartPrev.length) * r).toFixed(2) : '—'} ${cur}</div>
+        </div>
+      </div>
+
+      ${mode !== 'y-y' ? `
+      <div class="chart-container" style="height:200px;overflow:hidden">
+        <div class="chart-title">
+          <span>${mode === 'w-w' ? 'Ostatnie 8 tygodni' : 'Ostatnie 12 miesięcy'}</span>
+        </div>
+        <canvas id="trend-bar-chart"></canvas>
+      </div>` : ''}
+    `;
+  }
+
+  _render() {
+    if (!this._hass) return;
+    const L = this._lang === 'pl';
+    if (!this._domBuilt) {
+      // First render: full DOM build
+      this._destroyAllCharts();
+      const html = this._getStyles() + this._getTemplate();
+      if (this._lastHtml === html) return;
+      this._lastHtml = html;
+      this.shadowRoot.innerHTML = html;
+      this._setupEventListeners();
+      this._renderCurrentTab();
+      this._domBuilt = true;
+    } else {
+      // Subsequent renders: update values in place without rebuilding DOM
+      this._updateDomValues();
+      // Do NOT redraw charts on every hass update - only on tab change or data refresh
+    }
+  }
+
+  _updateDomValues() {
+    const sr = this.shadowRoot;
+    if (!sr) return;
+    // Update summary cards
+    const summaryValues = sr.querySelectorAll('.summary-value');
+    if (summaryValues[0]) summaryValues[0].textContent = this._calculateTodayUsage().toFixed(2);
+    if (summaryValues[1]) summaryValues[1].textContent = this._calculateTodayCost().toFixed(2);
+    // 3rd card: either savings or peak hour
+    if (summaryValues[2]) {
+      const hasDualTariff = (this._config.energy_tariff_mode || 'flat') !== 'flat';
+      summaryValues[2].textContent = hasDualTariff
+        ? this._calculatePotentialSavings().toFixed(2)
+        : this._getPeakHour() + ':00';
+    }
+    if (summaryValues[3]) summaryValues[3].textContent = this._calculateEfficiencyScore();
+    // Update power draw
+    const powerVal = sr.querySelector('.power-draw-value');
+    if (powerVal) powerVal.textContent = (this._currentPowerW / 1000).toFixed(2);
+    // Update data source badge
+    const badge = sr.querySelector('.data-source-badge');
+    if (badge) {
+      badge.textContent = this._hasRealData
+        ? `\u{1F4CA} Dane z ${(this._energySensorIds || []).length} sensor\u00F3w energii`
+        : (this._statsLoading ? '\u23F3 Wczytywanie danych z recorder...' : '\u26A0\uFE0F Demo data \u2014 brak sensor\u00F3w kWh');
+    }
+    // Update comparison tab body
+    if (this._comparisonData) {
+      const cmpBody = sr.querySelector('#compare-body');
+      if (cmpBody) cmpBody.innerHTML = this._renderCompareBody();
+    }
+    // Update pattern stats
+    const statValues = sr.querySelectorAll('#patterns .stat-value');
+    if (statValues[0]) statValues[0].textContent = this._energyData.reduce((a, b) => Math.max(a, b), 0).toFixed(2) + ' kWh';
+    if (statValues[1]) statValues[1].textContent = (this._energyData.slice(0, this._config.peak_hours?.start || 6).reduce((a, b) => a + b, 0) / (this._config.peak_hours?.start || 6)).toFixed(2) + ' kWh/h';
+    if (statValues[2]) statValues[2].textContent = this._calculatePeakRatio().toFixed(1) + ':1';
+  }
+
+  _getStyles() {
+    return `
+      <style>${window.HAToolsBentoCSS || ""}
+/* === Support / Donation Section (HA Tools split) === */
+.donate-section { margin: 20px 0 4px; padding: 18px 20px;  background: var(--donate-bg, linear-gradient(135deg, #fff5f5 0%, #fff0f6 50%, #f8f0ff 100%));  border: 1px solid var(--donate-border, #f3d3e0); border-radius: var(--bento-radius-md, 16px);  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; }
+.donate-section h3 { margin: 0 0 6px; font-size: 15px; color: var(--donate-heading, #be185d); }
+.donate-section p  { margin: 0; font-size: 12.5px; line-height: 1.55; color: var(--donate-text, #6b21a8); }
+.donate-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+.donate-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 10px;  font-weight: 600; font-size: 12.5px; text-decoration: none; transition: transform .15s ease, box-shadow .15s ease; }
+.donate-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0,0,0,0.08); }
+.donate-btn.coffee { background: #FFDD00; color: #000; border: 1px solid #e6c700; }
+.donate-btn.paypal { background: #0070ba; color: #fff; border: 1px solid #005ea6; }
+@media (prefers-color-scheme: dark) {  .donate-section { background: linear-gradient(135deg, #2a1525 0%, #1e1530 50%, #251530 100%); border-color: #4a3555; }  .donate-section h3 { color: #f0c0d8; }  .donate-section p  { color: #d4a0b8; }  .donate-btn.coffee { background: #b8a100; color: #fff; border-color: #8a7a00; }  .donate-btn.paypal { background: #005a96; color: #e0f0ff; border-color: #004a7a; } }
+@media (max-width: 600px) {  .donate-section { flex-direction: column; text-align: center; padding: 16px; }  .donate-buttons { justify-content: center; } }
+
+
+        
+/* ===== BENTO DESIGN SYSTEM (local fallback) ===== */
+
+:host {
+  --bento-primary: #3B82F6;
+  --bento-primary-hover: #2563EB;
+  --bento-primary-light: rgba(59, 130, 246, 0.08);
+  --bento-success: #10B981;
+  --bento-success-light: rgba(16, 185, 129, 0.08);
+  --bento-error: #EF4444;
+  --bento-error-light: rgba(239, 68, 68, 0.08);
+  --bento-warning: #F59E0B;
+  --bento-warning-light: rgba(245, 158, 11, 0.08);
+  --bento-bg: var(--primary-background-color, #F8FAFC);
+  --bento-card: var(--card-background-color, #FFFFFF);
+  --bento-border: var(--divider-color, #E2E8F0);
+  --bento-text: var(--primary-text-color, #1E293B);
+  --bento-text-secondary: var(--secondary-text-color, #64748B);
+  --bento-text-muted: var(--disabled-text-color, #94A3B8);
+  --bento-radius-xs: 6px;
+  --bento-radius-sm: 10px;
+  --bento-radius-md: 16px;
+  --bento-shadow-sm: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06);
+  --bento-shadow-md: 0 4px 12px rgba(0,0,0,0.05), 0 2px 4px rgba(0,0,0,0.04);
+  --bento-shadow-lg: 0 8px 25px rgba(0,0,0,0.06), 0 4px 10px rgba(0,0,0,0.04);
+  --bento-transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+:host {
+          font-family: 'Inter', sans-serif;
+        }
+        
+@media (prefers-color-scheme: dark) {
+  :host {
+    --bento-bg: var(--primary-background-color, #1a1a2e);
+    --bento-card: var(--card-background-color, #16213e);
+    --bento-text: var(--primary-text-color, #e2e8f0);
+    --bento-text-secondary: var(--secondary-text-color, #94a3b8);
+    --bento-border: var(--divider-color, #334155);
+    --bento-shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
+    --bento-shadow-md: 0 4px 12px rgba(0,0,0,0.4);
+  }
+}
+        .card { background: var(--bento-card); border: 1px solid var(--bento-border); border-radius: var(--bento-radius-md); padding: 20px; box-shadow: var(--bento-shadow-sm); }
+        .card-title { font-size: 17px; font-weight: 700; color: var(--bento-text); margin: 0 0 4px; }
+        .data-source-badge { font-size: 11px; color: var(--bento-text-muted); margin-bottom: 14px; }
+        .tabs { display: flex; gap: 4px; border-bottom: 2px solid var(--bento-border); margin-bottom: 18px; overflow-x: auto; overflow-y: hidden; }
+        .tab-btn { padding: 8px 16px; border: none; background: transparent; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--bento-text-secondary); border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all .2s; white-space: nowrap; font-family: 'Inter', sans-serif; border-radius: 0; }
+        .tab-btn:hover { color: var(--bento-primary); background: var(--bento-primary-light); }
+        .tab-btn.active { color: var(--bento-primary); border-bottom-color: var(--bento-primary); font-weight: 600; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 16px; }
+        .summary-card { background: var(--bento-bg); border: 1px solid var(--bento-border); border-radius: var(--bento-radius-sm); padding: 14px; text-align: center; }
+        .summary-card.alt { border-left: 3px solid var(--bento-primary); }
+        .summary-card.warn { border-left: 3px solid var(--bento-warning); }
+        .summary-label { font-size: 11px; font-weight: 500; color: var(--bento-text-secondary); text-transform: uppercase; letter-spacing: .4px; }
+        .summary-value { font-size: 24px; font-weight: 700; color: var(--bento-text); }
+        .power-draw { text-align: center; padding: 14px; background: var(--bento-bg); border: 1px solid var(--bento-border); border-radius: var(--bento-radius-sm); margin-bottom: 16px; }
+        .power-draw-value { font-size: 28px; font-weight: 700; color: var(--bento-primary); }
+        .power-draw-unit { font-size: 11px; color: var(--bento-text-secondary); text-transform: uppercase; letter-spacing: .4px; }
+        .chart-container { position: relative; height: 300px; background: var(--bento-bg); border: 1px solid var(--bento-border); border-radius: var(--bento-radius-sm); padding: 14px; margin-bottom: 16px; overflow: visible; display: flex; flex-direction: column; }
+        .chart-title { font-size: 13px; font-weight: 600; color: var(--bento-text); margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+        .chart-title span:last-child { font-size: 11px; color: var(--bento-text-secondary); font-weight: 400; }
+        canvas { max-width: 100% !important; border: none !important; display: block !important; flex: 1; min-height: 0; }
+        .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 16px; }
+        .stat-item { background: var(--bento-bg); border: 1px solid var(--bento-border); border-radius: var(--bento-radius-sm); padding: 14px; text-align: center; }
+        .stat-label { font-size: 11px; font-weight: 500; color: var(--bento-text-secondary); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 4px; }
+        .stat-value { font-size: 18px; font-weight: 700; color: var(--bento-text); }
+        .heatmap-legend { display: flex; gap: 16px; justify-content: center; margin-top: 12px; flex-wrap: wrap; overflow: visible; min-height: 24px; }
+        .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--bento-text-secondary); min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .legend-color { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
+        .compare-mode-bar { display: flex; gap: 4px; margin-bottom: 16px; background: var(--bento-bg); border: 1px solid var(--bento-border); border-radius: var(--bento-radius-sm); padding: 4px; }
+        .compare-mode-btn { flex: 1; padding: 8px 10px; border: none; background: transparent; cursor: pointer; font-size: 12px; font-weight: 500; color: var(--bento-text-secondary); border-radius: 8px; transition: all .2s; font-family: 'Inter', sans-serif; white-space: nowrap; }
+        .compare-mode-btn:hover { color: var(--bento-primary); background: var(--bento-primary-light); }
+        .compare-mode-btn.active { color: #fff; background: var(--bento-primary); font-weight: 600; box-shadow: 0 2px 6px rgba(59,130,246,.3); }
+        .comparison-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+        .comparison-card { background: var(--bento-bg); border: 1px solid var(--bento-border); border-radius: var(--bento-radius-sm); padding: 14px; text-align: center; }
+        .comparison-title { font-size: 11px; font-weight: 500; color: var(--bento-text-secondary); text-transform: uppercase; letter-spacing: .4px; }
+        .comparison-value { font-size: 24px; font-weight: 700; color: var(--bento-text); margin: 4px 0; }
+        .change-indicator { font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 12px; }
+        .change-up { color: var(--bento-error); background: var(--bento-error-light); }
+        .change-down { color: var(--bento-success); background: var(--bento-success-light); }
+        .change-up { color: var(--bento-error); }
+        .change-down { color: var(--bento-success); }
+        .section-title { font-size: 13px; font-weight: 600; color: var(--bento-text-secondary); text-transform: uppercase; letter-spacing: .5px; margin: 16px 0 8px; }
+        .recommendation { display: flex; align-items: flex-start; gap: 12px; padding: 12px; border: 1px solid var(--bento-border); border-radius: var(--bento-radius-sm); margin-bottom: 10px; transition: background .15s; }
+        .recommendation:hover { background: var(--bento-primary-light); }
+        .recommendation.high { border-left: 3px solid var(--bento-error); }
+        .recommendation.medium { border-left: 3px solid var(--bento-warning); }
+        .recommendation.low { border-left: 3px solid var(--bento-success); }
+        .rec-icon { font-size: 20px; flex-shrink: 0; }
+        .rec-content { flex: 1; }
+        .rec-title { font-size: 13px; font-weight: 600; color: var(--bento-text); margin-bottom: 4px; }
+        .rec-description { font-size: 12px; color: var(--bento-text-secondary); line-height: 1.5; }
+        .rec-footer { display: flex; gap: 8px; margin-top: 8px; }
+        .savings-badge { display: inline-flex; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; background: var(--bento-success-light); color: var(--bento-success); }
+        .difficulty-badge { display: inline-flex; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; background: var(--bento-primary-light); color: var(--bento-primary); text-transform: capitalize; }
+        .pagination { display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--bento-border); }
+        .pagination-btn { padding: 6px 14px; border: 1.5px solid var(--bento-border); background: var(--bento-card); color: var(--bento-text); border-radius: var(--bento-radius-xs); cursor: pointer; font-size: 13px; font-weight: 500; font-family: 'Inter', sans-serif; transition: all .2s; }
+        .pagination-btn:hover:not(:disabled) { background: var(--bento-primary); color: #fff; border-color: var(--bento-primary); }
+        .pagination-btn:disabled { opacity: .4; cursor: not-allowed; }
+        .pagination-info { font-size: 12px; color: var(--bento-text-secondary); }
+        .page-size-select { padding: 5px 8px; border: 1.5px solid var(--bento-border); border-radius: var(--bento-radius-xs); font-size: 12px; font-family: 'Inter', sans-serif; background: var(--bento-card); color: var(--bento-text); }
+        
+        .tabs, .tab-bar { scrollbar-width: thin; scrollbar-color: var(--bento-border, #E2E8F0) transparent; }
+        .tabs::-webkit-scrollbar, .tab-bar::-webkit-scrollbar { height: 4px; }
+        .tabs::-webkit-scrollbar-track, .tab-bar::-webkit-scrollbar-track { background: transparent; }
+        .tabs::-webkit-scrollbar-thumb, .tab-bar::-webkit-scrollbar-thumb { background: var(--bento-border, #E2E8F0); border-radius: 4px; }
+        .time-range-selector { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+        .time-range-btn { padding: 6px 12px; border: 1px solid var(--bento-border); background: var(--bento-bg); color: var(--bento-text-secondary); border-radius: var(--bento-radius-xs); cursor: pointer; font-size: 12px; font-weight: 500; font-family: 'Inter', sans-serif; transition: all .2s; }
+        .time-range-btn:hover { color: var(--bento-primary); border-color: var(--bento-primary); background: var(--bento-primary-light); }
+        .time-range-btn.active { background: var(--bento-primary); color: #fff; border-color: var(--bento-primary); font-weight: 600; }
+@media (max-width: 768px) {
+          .tabs { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; gap: 2px; }
+          .tab-btn { padding: 6px 10px; font-size: 12px; }
+          .card { padding: 14px; }
+          .grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+          .summary-value, .comparison-value { font-size: 18px; }
+          .summary-label, .comparison-title { font-size: 10px; }
+        }
+        @media (max-width: 480px) {
+          .tabs { gap: 1px; }
+          .tab-btn { padding: 5px 8px; font-size: 11px; }
+          .summary-value, .comparison-value { font-size: 16px; }
+        }
+        @media (max-width: 360px) {
+          .grid, .stats-row, .comparison-grid { grid-template-columns: 1fr; }
+        }
+
+
+
+        /* G6: Chart container constraints */
+        .chart-container { max-height: 300px; overflow: hidden; position: relative; }
+        .chart-container canvas { max-height: 250px; width: 100%; }
+        canvas { max-height: 300px; }
+        .settings-btn { position: absolute; top: 16px; right: 16px; background: var(--bento-bg); border: 1px solid var(--bento-border); border-radius: var(--bento-radius-sm); padding: 6px 12px; cursor: pointer; font-size: 12px; color: var(--bento-text-secondary); transition: all .2s; font-family: 'Inter', sans-serif; display: flex; align-items: center; gap: 6px; z-index: 5; }
+        .settings-btn:hover { color: var(--bento-primary); border-color: var(--bento-primary); background: var(--bento-primary-light); }
+        .settings-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,.5); z-index: 100; justify-content: center; align-items: center; }
+        .settings-overlay.active { display: flex; }
+        .settings-panel { background: var(--bento-card, #1e293b); border: 1px solid var(--bento-border); border-radius: var(--bento-radius-md); padding: 24px; max-width: 480px; width: 90%; max-height: 80vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.4); }
+        .settings-panel h3 { margin: 0 0 16px; font-size: 16px; color: var(--bento-text); }
+        .settings-panel .form-row { margin-bottom: 14px; }
+        .settings-panel label { display: block; font-size: 12px; font-weight: 500; color: var(--bento-text-secondary); margin-bottom: 4px; text-transform: uppercase; letter-spacing: .4px; }
+        .settings-panel input, .settings-panel select { width: 100%; padding: 8px 12px; border: 1px solid var(--bento-border); border-radius: var(--bento-radius-sm); background: var(--bento-bg); color: var(--bento-text); font-size: 13px; font-family: 'Inter', sans-serif; box-sizing: border-box; }
+        .settings-panel .btn-row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
+        .settings-panel .btn-save { padding: 8px 20px; background: var(--bento-primary); color: #fff; border: none; border-radius: var(--bento-radius-sm); cursor: pointer; font-weight: 600; font-size: 13px; }
+        .settings-panel .btn-cancel { padding: 8px 20px; background: transparent; border: 1px solid var(--bento-border); border-radius: var(--bento-radius-sm); cursor: pointer; color: var(--bento-text-secondary); font-size: 13px; }
+        .rate-annotation { font-size: 11px; color: var(--bento-text-muted, #64748b); margin-top: 2px; }
+        </style>
+    `;
+  }
+
+  _getTemplate() {
+    return `
+      <div class="card">
+        <h2 class="card-title" style="position:relative;">${this._config?.title || 'Energy Optimizer'}
+          <button class="settings-btn" data-action="open-settings">
+            \u2699\uFE0F Rates
+          </button>
+        </h2>
+
+        <div class="rate-annotation">
+          Tariff: ${this._getTariffLabel()}
+        </div>
+
+        <div class="data-source-badge">
+          ${this._hasRealData ? '\u{1F4CA} Dane z ' + (this._energySensorIds || []).length + ' sensor\u00F3w energii' : (this._statsLoading ? '\u23F3 Wczytywanie danych z recorder...' : '\u26A0\uFE0F Demo data \u2014 brak sensor\u00F3w kWh')}
+        </div>
+
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
+          <button class="tab-btn" data-tab="patterns">Patterns</button>
+          <button class="tab-btn" data-tab="recommendations">Recommendations</button>
+          <button class="tab-btn" data-tab="compare">Compare</button>
+        </div>
+
+        <div id="dashboard" class="tab-content active">
+          <div class="time-range-selector">
+            <button class="time-range-btn${this._timeRange === 'today' ? ' active' : ''}" data-time-range="today">Today</button>
+            <button class="time-range-btn${this._timeRange === 'yesterday' ? ' active' : ''}" data-time-range="yesterday">Yesterday</button>
+            <button class="time-range-btn${this._timeRange === '7days' ? ' active' : ''}" data-time-range="7days">Last 7 days</button>
+            <button class="time-range-btn${this._timeRange === '30days' ? ' active' : ''}" data-time-range="30days">Last 30 days</button>
+          </div>
+          <div class="grid">
+            <div class="summary-card">
+              <span class="summary-label">Today's Usage</span>
+              <div class="summary-value">${this._calculateTodayUsage().toFixed(2)}</div>
+              <span class="summary-label">kWh</span>
+            </div>
+            <div class="summary-card alt">
+              <span class="summary-label">Cost Estimate</span>
+              <div class="summary-value">${this._calculateTodayCost().toFixed(2)}</div>
+              <span class="summary-label">${this._config.currency || 'PLN'}${((this._config.energy_tariff_mode || 'flat') !== 'flat') ? ' (dual-tariff)' : ''}</span>
+            </div>
+            ${((this._config.energy_tariff_mode || 'flat') !== 'flat') ? `
+            <div class="summary-card" style="border-left:3px solid var(--bento-success)">
+              <span class="summary-label">Potential Savings</span>
+              <div class="summary-value">${this._calculatePotentialSavings().toFixed(2)}</div>
+              <span class="summary-label">${this._config.currency || 'PLN'}/day by shifting to off-peak</span>
+            </div>` : `
+            <div class="summary-card warn">
+              <span class="summary-label">Peak Hour</span>
+              <div class="summary-value">${this._getPeakHour()}:00</div>
+              <span class="summary-label">Highest consumption</span>
+            </div>`}
+            <div class="summary-card">
+              <span class="summary-label">Efficiency Score</span>
+              <div class="summary-value">${this._calculateEfficiencyScore()}</div>
+              <span class="summary-label">/ 100</span>
+            </div>
+          </div>
+
+          <div class="power-draw">
+            <div class="power-draw-unit">Current Power Draw</div>
+            <div class="power-draw-value">${(this._currentPowerW / 1000).toFixed(2)}</div>
+            <div class="power-draw-unit">kW</div>
+          </div>
+
+          <div class="chart-container">
+            <div class="chart-title">
+              <span>24-Hour Usage</span>
+              <span style="font-size: 12px; color: var(--bento-text-secondary); font-weight: 400;">kWh by hour</span>
+            </div>
+            <canvas id="dashboard-chart"></canvas>
+          </div>
+        </div>
+
+        <div id="patterns" class="tab-content">
+          <div class="chart-container">
+            <div class="chart-title">
+              <span>Weekly Heat Map</span>
+              <span style="font-size: 12px; color: var(--bento-text-secondary); font-weight: 400;">Energy intensity by day & hour</span>
+            </div>
+            <canvas id="heatmap-canvas"></canvas>
+            <div class="heatmap-legend">
+              <div class="legend-item">
+                <div class="legend-color" style="background: #1e3a8a;"></div>
+                <span>Low</span>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color" style="background: #3b82f6;"></div>
+                <span>Moderate</span>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color" style="background: #fbbf24;"></div>
+                <span>High</span>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color" style="background: #dc2626;"></div>
+                <span>Peak</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="stats-row">
+            <div class="stat-item">
+              <div class="stat-label">Peak Usage</div>
+              <div class="stat-value">${(this._energyData.reduce((a, b) => Math.max(a, b))).toFixed(2)} kWh</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">Off-Peak Usage</div>
+              <div class="stat-value">${(this._energyData.slice(0, this._config.peak_hours?.start || 6).reduce((a, b) => a + b, 0) / (this._config.peak_hours?.start || 6)).toFixed(2)} kWh/h</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">Ratio</div>
+              <div class="stat-value">${this._calculatePeakRatio().toFixed(1)}:1</div>
+            </div>
+          </div>
+
+          <div class="chart-container">
+            <div class="chart-title">
+              <span>7-Day Trend</span>
+              <span style="font-size: 12px; color: var(--bento-text-secondary); font-weight: 400;">Daily consumption average</span>
+            </div>
+            <canvas id="trend-chart"></canvas>
+          </div>
+
+          <div class="chart-container">
+            <div class="chart-title">
+              <span>Day-of-Week Comparison</span>
+              <span style="font-size: 12px; color: var(--bento-text-secondary); font-weight: 400;">Average daily usage</span>
+            </div>
+            <canvas id="weekday-chart"></canvas>
+          </div>
+        </div>
+
+        <div id="recommendations" class="tab-content">
+          <div id="recommendations-list"></div>
+        </div>
+
+        <div id="compare" class="tab-content">
+          <div class="compare-mode-bar">
+            <button class="compare-mode-btn ${this._comparePeriod === 'w-w' ? 'active' : ''}" data-cmp="w-w">Week vs Week</button>
+            <button class="compare-mode-btn ${this._comparePeriod === 'm-m' ? 'active' : ''}" data-cmp="m-m">Month vs Month</button>
+            <button class="compare-mode-btn ${this._comparePeriod === 'y-y' ? 'active' : ''}" data-cmp="y-y">Year vs Year</button>
+          </div>
+          <div id="compare-body">${this._renderCompareBody()}</div>
+        </div>
+
+        <div class="settings-overlay" id="settings-overlay">
+          <div class="settings-panel">
+            <h3>\u2699\uFE0F Energy Rate Settings</h3>
+            <div class="form-row">
+              <label>Tariff Mode</label>
+              <select class="input-tariff-mode">
+                <option value="flat" ${(this._config.energy_tariff_mode || 'flat') === 'flat' ? 'selected' : ''}>Flat rate</option>
+                <option value="day_night" ${this._config.energy_tariff_mode === 'day_night' ? 'selected' : ''}>Day / Night</option>
+                <option value="weekday_weekend" ${this._config.energy_tariff_mode === 'weekday_weekend' ? 'selected' : ''}>Weekday / Weekend</option>
+                <option value="mixed" ${this._config.energy_tariff_mode === 'mixed' ? 'selected' : ''}>Mixed (day/night + weekend)</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label>Rate (per kWh)</label>
+              <input type="number" step="0.01" class="input-energy-price" value="${_esc(this._config.energy_price || 0.65)}" />
+              <div class="rate-annotation">For flat mode — single 24h rate</div>
+            </div>
+            <div class="form-row">
+              <label>Day Rate</label>
+              <input type="number" step="0.01" class="input-price-day" value="${_esc(this._config.energy_price_day || 0.65)}" />
+            </div>
+            <div class="form-row">
+              <label>Night Rate</label>
+              <input type="number" step="0.01" class="input-price-night" value="${_esc(this._config.energy_price_night || 0.45)}" />
+            </div>
+            <div class="form-row">
+              <label>Day Start Hour</label>
+              <input type="number" min="0" max="23" class="input-day-start" value="${_esc(this._config.energy_day_hour_start || 6)}" />
+            </div>
+            <div class="form-row">
+              <label>Night Start Hour</label>
+              <input type="number" min="0" max="23" class="input-night-start" value="${_esc(this._config.energy_night_hour_start || 22)}" />
+            </div>
+            <div class="form-row">
+              <label>Currency</label>
+              <input type="text" class="input-currency" value="${_esc(this._config.currency || 'PLN')}" />
+            </div>
+            <div class="btn-row">
+              <button class="btn-cancel" data-action="close-settings">Cancel</button>
+              <button class="btn-save" data-action="save-settings">Save</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  _setupEventListeners() {
+    const sr = this.shadowRoot;
+    sr.querySelectorAll('.tab-btn').forEach(button => {
+      button.addEventListener('click', (e) => {
+        sr.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        this._currentTab = e.target.dataset.tab;
+        history.replaceState(null, '', location.pathname + '#' + this._toolId + '/' + this._currentTab);
+        this._showTab(e.target.dataset.tab);
+      });
+    });
+    // Time range selector (only on dashboard tab, not on compare)
+    sr.querySelectorAll('.time-range-btn').forEach(button => {
+      button.addEventListener('click', (e) => {
+        sr.querySelectorAll('.time-range-btn').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        this._timeRange = e.target.dataset.timeRange;
+        // Reload data with new time range and re-render dashboard
+        this._lastStatsFetch = 0; // Force data reload
+        this._fetchEnergyStats().then(() => {
+          this._showTab('dashboard');
+        }).catch(() => {
+          this._showTab('dashboard');
+        });
+      });
+    });
+    // Comparison mode buttons (use delegation since body is rebuilt)
+    sr.addEventListener('click', (e) => {
+      const btn = e.target.closest('.compare-mode-btn');
+      if (!btn) return;
+      this._comparePeriod = btn.dataset.cmp;
+      sr.querySelectorAll('.compare-mode-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const body = sr.querySelector('#compare-body');
+      if (body) body.innerHTML = this._renderCompareBody();
+      this._drawComparisonChart().catch(() => {});
+      this._drawTrendBarChart().catch(() => {});
+    });
+
+    // Settings button
+    const settingsBtn = sr.querySelector('[data-action="open-settings"]');
+    if (settingsBtn) {
+      settingsBtn.addEventListener('click', () => {
+        const overlay = sr.querySelector('#settings-overlay');
+        if (overlay) overlay.classList.add('active');
+      });
+    }
+    const closeSettings = sr.querySelector('[data-action="close-settings"]');
+    if (closeSettings) {
+      closeSettings.addEventListener('click', () => {
+        const overlay = sr.querySelector('#settings-overlay');
+        if (overlay) overlay.classList.remove('active');
+      });
+    }
+    const saveSettings = sr.querySelector('[data-action="save-settings"]');
+    if (saveSettings) {
+      saveSettings.addEventListener('click', () => {
+        const mode = sr.querySelector('.input-tariff-mode')?.value || 'flat';
+        const price = parseFloat(sr.querySelector('.input-energy-price')?.value) || 0.65;
+        const priceDay = parseFloat(sr.querySelector('.input-price-day')?.value) || 0.65;
+        const priceNight = parseFloat(sr.querySelector('.input-price-night')?.value) || 0.45;
+        const dayStart = parseInt(sr.querySelector('.input-day-start')?.value) || 6;
+        const nightStart = parseInt(sr.querySelector('.input-night-start')?.value) || 22;
+        const currency = sr.querySelector('.input-currency')?.value || 'PLN';
+        this._config = { ...this._config,
+          energy_tariff_mode: mode, energy_price: price,
+          energy_price_day: priceDay, energy_price_night: priceNight,
+          energy_day_hour_start: dayStart, energy_night_hour_start: nightStart,
+          currency: currency
+        };
+        try {
+          localStorage.setItem('ha-tools-energy-optimizer-settings', JSON.stringify({
+            energy_tariff_mode: mode, energy_price: price,
+            energy_price_day: priceDay, energy_price_night: priceNight,
+            energy_day_hour_start: dayStart, energy_night_hour_start: nightStart,
+            currency: currency
+          }));
+        } catch(e) { console.debug('[ha-energy-optimizer] caught:', e); }
+        const overlay = sr.querySelector('#settings-overlay');
+        if (overlay) overlay.classList.remove('active');
+        this._domBuilt = false;
+        this._generateRecommendations();
+        this._generateComparisonData();
+        this._render();
+      });
+    }
+    const settingsOverlay = sr.querySelector('#settings-overlay');
+    if (settingsOverlay) {
+      settingsOverlay.addEventListener('click', (e) => {
+        if (e.target === settingsOverlay) settingsOverlay.classList.remove('active');
+      });
+    }
+  }
+  async _loadChartJS() {
+    if (this._chartJsLoaded) {
+      return window.Chart;
+    }
+
+    return new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = '/local/community/ha-tools/vendor/chart.umd.min.js';
+      script.async = true;
+      script.onload = () => {
+        this._chartJsLoaded = true;
+        resolve(window.Chart);
+      };
+      script.onerror = () => {
+        reject(new Error('Failed to load Chart.js'));
+      };
+      document.head.appendChild(script);
+    });
+  }
+
+  _destroyChart(chartKey) {
+    if (this._charts[chartKey]) {
+      this._charts[chartKey].destroy();
+      delete this._charts[chartKey];
+    }
+  }
+
+  _destroyAllCharts() {
+    Object.keys(this._charts).forEach(key => {
+      this._destroyChart(key);
+    });
+  }
+
+  _showTab(tabName) {
+    const tabs = this.shadowRoot.querySelectorAll('.tab-content');
+    tabs.forEach(tab => tab.classList.remove('active'));
+    const tabEl = this.shadowRoot.getElementById(tabName);
+    if (tabEl) {
+      tabEl.classList.add('active');
+    }
+
+    // Draw charts after showing tab (needed for canvas sizing)
+    setTimeout(() => {
+      if (tabName === 'dashboard') {
+        this._drawDashboardChart().catch(err => console.error('Dashboard chart error:', err));
+      } else if (tabName === 'patterns') {
+        this._drawHeatmap();
+        this._drawTrendChart().catch(err => console.error('Trend chart error:', err));
+        this._drawWeekdayChart().catch(err => console.error('Weekday chart error:', err));
+      } else if (tabName === 'recommendations') {
+        this._renderRecommendations();
+      } else if (tabName === 'compare') {
+        this._drawComparisonChart().catch(err => console.error('Comparison chart error:', err));
+        this._drawTrendBarChart().catch(err => console.error('Trend bar chart error:', err));
+      }
+    }, 100);
+  }
+
+  _renderCurrentTab() {
+    setTimeout(() => this._showTab('dashboard'), 100);
+  }
+
+  async _drawDashboardChart() {
+    try {
+      await this._loadChartJS();
+      if (!window.Chart) {
+        console.warn('ha-energy-optimizer: Chart.js not loaded');
+        return;
+      }
+      const canvas = this.shadowRoot.getElementById('dashboard-chart');
+      if (!canvas) return;
+
+      this._destroyChart('dashboard');
+
+      const ctx = canvas.getContext('2d');
+      const labels = Array.from({ length: 24 }, (_, i) => `${i}:00`);
+      const data = this._energyData || Array(24).fill(0);
+
+      const chartConfig = {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Energy Usage (kWh)',
+            data: data,
+            backgroundColor: data.map((val, hour) => {
+              const isPeak = hour >= (this._config?.peak_hours?.start || 6) && hour < (this._config?.peak_hours?.end || 22);
+              return isPeak ? 'rgba(59, 130, 246, 0.7)' : 'rgba(100, 200, 100, 0.7)';
+            }),
+            borderColor: data.map((val, hour) => {
+              const isPeak = hour >= (this._config?.peak_hours?.start || 6) && hour < (this._config?.peak_hours?.end || 22);
+              return isPeak ? 'rgb(59, 130, 246)' : 'rgb(100, 200, 100)';
+            }),
+            borderWidth: 1,
+            borderRadius: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          indexAxis: undefined,
+          plugins: {
+            legend: {
+              display: true,
+              position: 'top'
+            },
+            tooltip: {
+              callbacks: {
+                label: (context) => {
+                  return `${context.formattedValue} kWh`;
+                },
+                title: (context) => {
+                  return context[0].label;
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              title: {
+                display: true,
+                text: 'Energy (kWh)'
+              }
+            },
+            x: {
+              title: {
+                display: true,
+                text: 'Hour of Day'
+              }
+            }
+          }
+        }
+      };
+
+      this._charts['dashboard'] = new window.Chart(ctx, chartConfig);
+    } catch (error) {
+      console.error('Error drawing dashboard chart:', error);
+    }
+  }
+_drawHeatmap() {
+    const canvas = this.shadowRoot.getElementById('heatmap-canvas');
+    if (!canvas) return;
+
+    this._fixCanvasSize(canvas);
+    const ctx = canvas.getContext('2d');
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+
+    canvas.width = rect.width * dpr;
+    canvas.height = 200 * dpr;
+    ctx.scale(dpr, dpr);
+
+    const width = rect.width;
+    const height = 200;
+    const padding = rect.width < 350 ? 20 : 40;
+    const days = rect.width < 350 ? ['M','T','W','T','F','S','S'] : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const cellWidth = (width - padding * 2) / 24;
+    const cellHeight = (height - padding * 2) / 7;
+
+    // Find min/max for color scaling
+    const allValues = (this._weeklyData || []).flat();
+    const minVal = allValues.length > 0 ? Math.min(...allValues) : 0;
+    const maxVal = allValues.length > 0 ? Math.max(...allValues) : 1;
+    const range = maxVal - minVal || 1;
+
+    // Detect dark mode for text and border colors
+    const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const textColor = isDark ? 'rgba(226, 232, 240, 0.85)' : 'rgba(0, 0, 0, 0.7)';
+
+    // Helper to get color from value (blue to red gradient)
+    const getColor = (val) => {
+      const normalized = (val - minVal) / range;
+      const hue = (1 - normalized) * 240; // 240 = blue, 0 = red
+      return `hsl(${hue}, 70%, 50%)`;
+    };
+
+    // Draw cells
+    (this._weeklyData || []).forEach((dayData, dayIndex) => {
+      dayData.forEach((value, hourIndex) => {
+        const x = padding + hourIndex * cellWidth;
+        const y = padding + dayIndex * cellHeight;
+
+        ctx.fillStyle = getColor(value);
+        ctx.fillRect(x, y, cellWidth - 1, cellHeight - 1);
+
+        // Draw cell border
+        ctx.strokeStyle = isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(255, 255, 255, 0.3)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, cellWidth - 1, cellHeight - 1);
+      });
+    });
+
+    // Day labels (Y-axis)
+    ctx.fillStyle = textColor;
+    ctx.font = '12px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    days.forEach((day, i) => {
+      const y = padding + (i + 0.5) * cellHeight;
+      ctx.fillText(day, padding - 10, y);
+    });
+
+    // Hour labels (X-axis)
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    const hourStep = rect.width < 350 ? 6 : 3;
+    for (let h = 0; h < 24; h += hourStep) {
+      const x = padding + (h + 0.5) * cellWidth;
+      ctx.fillText(h + ':00', x, height - padding + 5);
+    }
+
+    // Legend
+    ctx.fillStyle = textColor;
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'left';
+    const legendX = padding;
+    const legendY = height - 15;
+    ctx.fillText(`Min: ${minVal.toFixed(2)} kWh`, legendX, legendY);
+    ctx.fillText(`Max: ${maxVal.toFixed(2)} kWh`, legendX + 120, legendY);
+  }
+
+
+  async _drawTrendChart() {
+    try {
+      await this._loadChartJS();
+      if (!window.Chart) {
+        console.warn('ha-energy-optimizer: Chart.js not loaded');
+        return;
+      }
+      const canvas = this.shadowRoot.getElementById('trend-chart');
+      if (!canvas) return;
+
+      this._destroyChart('trend');
+
+      const ctx = canvas.getContext('2d');
+      const dailyTotals = this._weeklyData?.map(day => (day || []).reduce((a, b) => a + b, 0)) || [0, 0, 0, 0, 0, 0, 0];
+      const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+      const chartConfig = {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Daily Total Usage (kWh)',
+            data: dailyTotals,
+            borderColor: 'rgb(59, 130, 246)',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.4,
+            pointRadius: 5,
+            pointBackgroundColor: 'rgb(59, 130, 246)',
+            pointBorderColor: 'white',
+            pointBorderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: true,
+              position: 'top',
+              labels: { boxWidth: 12, padding: 8, font: { size: 11 } }
+            },
+            tooltip: {
+              callbacks: {
+                label: (context) => {
+                  return `${context.formattedValue} kWh`;
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              title: {
+                display: true,
+                text: 'Daily Total (kWh)'
+              }
+            },
+            x: {
+              title: {
+                display: true,
+                text: 'Day of Week'
+              }
+            }
+          }
+        }
+      };
+
+      this._charts['trend'] = new window.Chart(ctx, chartConfig);
+    } catch (error) {
+      console.error('Error drawing trend chart:', error);
+    }
+  }
+async _drawWeekdayChart() {
+    try {
+      await this._loadChartJS();
+      if (!window.Chart) {
+        console.warn('ha-energy-optimizer: Chart.js not loaded');
+        return;
+      }
+      const canvas = this.shadowRoot.getElementById('weekday-chart');
+      if (!canvas) return;
+
+      this._destroyChart('weekday');
+
+      const ctx = canvas.getContext('2d');
+      const dailyTotals = this._weeklyData?.map(day => (day || []).reduce((a, b) => a + b, 0)) || [0, 0, 0, 0, 0, 0, 0];
+      const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+      const chartConfig = {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Daily Total Usage (kWh)',
+            data: dailyTotals,
+            backgroundColor: [
+              'rgba(100, 200, 100, 0.7)',
+              'rgba(100, 200, 100, 0.7)',
+              'rgba(100, 200, 100, 0.7)',
+              'rgba(100, 200, 100, 0.7)',
+              'rgba(100, 200, 100, 0.7)',
+              'rgba(59, 130, 246, 0.7)',
+              'rgba(59, 130, 246, 0.7)'
+            ],
+            borderColor: [
+              'rgb(100, 200, 100)',
+              'rgb(100, 200, 100)',
+              'rgb(100, 200, 100)',
+              'rgb(100, 200, 100)',
+              'rgb(100, 200, 100)',
+              'rgb(59, 130, 246)',
+              'rgb(59, 130, 246)'
+            ],
+            borderWidth: 1,
+            borderRadius: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: true,
+              position: 'top',
+              labels: { boxWidth: 12, padding: 8, font: { size: 11 } }
+            },
+            tooltip: {
+              callbacks: {
+                label: (context) => {
+                  return `${context.formattedValue} kWh`;
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              title: {
+                display: true,
+                text: 'Daily Total (kWh)'
+              }
+            },
+            x: {
+              title: {
+                display: true,
+                text: 'Day of Week'
+              }
+            }
+          }
+        }
+      };
+
+      this._charts['weekday'] = new window.Chart(ctx, chartConfig);
+    } catch (error) {
+      console.error('Error drawing weekday chart:', error);
+    }
+  }
+async _drawComparisonChart() {
+    try {
+      await this._loadChartJS();
+      if (!window.Chart) {
+        console.warn('ha-energy-optimizer: Chart.js not loaded');
+        return;
+      }
+      const canvas = this.shadowRoot.getElementById('comparison-chart');
+      if (!canvas) return;
+      this._destroyChart('comparison');
+      const ctx = canvas.getContext('2d');
+      const c = this._comparisonData;
+      if (!c) return;
+      const mode = this._comparePeriod;
+
+      let currentData, prevData, currentLabel, prevLabel, xLabels;
+      if (mode === 'w-w') {
+        currentData = c.thisWeekDaily; prevData = c.lastWeekDaily;
+        currentLabel = 'Ten tydzień'; prevLabel = 'Poprzedni tydz.';
+        xLabels = ['Pn','Wt','Śr','Cz','Pt','So','Nd'].slice(0, Math.max(currentData.length, prevData.length));
+      } else if (mode === 'm-m') {
+        currentData = c.thisMonthDaily; prevData = c.lastMonthDaily;
+        currentLabel = 'Ten miesiąc'; prevLabel = 'Poprzedni mies.';
+        xLabels = Array.from({length: Math.max(currentData.length, prevData.length)}, (_, i) => i + 1);
+      } else {
+        currentData = c.thisMonthDaily; prevData = c.lastYearMonthDaily;
+        currentLabel = `${c.thisMonthLabel} ${new Date().getFullYear()}`;
+        prevLabel = `${c.thisMonthLabel} ${new Date().getFullYear() - 1}`;
+        xLabels = Array.from({length: Math.max(currentData.length, prevData.length)}, (_, i) => i + 1);
+      }
+
+      this._charts['comparison'] = new window.Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: xLabels,
+          datasets: [
+            { label: currentLabel, data: currentData, backgroundColor: 'rgba(59,130,246,.7)', borderColor: '#3B82F6', borderWidth: 1, borderRadius: 4 },
+            { label: prevLabel, data: prevData, backgroundColor: 'rgba(148,163,184,.5)', borderColor: '#94A3B8', borderWidth: 1, borderRadius: 4 }
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: true, position: 'top', labels: { boxWidth: 12, padding: 8, font: { size: 11 } } }, tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${parseFloat(c.formattedValue).toFixed(2)} kWh` } } },
+          scales: { y: { beginAtZero: true, title: { display: true, text: 'kWh' } }, x: { title: { display: true, text: mode === 'w-w' ? 'Dzień tygodnia' : 'Dzień miesiąca' } } }
+        }
+      });
+    } catch (error) {
+      console.error('Error drawing comparison chart:', error);
+    }
+  }
+
+  async _drawTrendBarChart() {
+    try {
+      await this._loadChartJS();
+      if (!window.Chart) {
+        console.warn('ha-energy-optimizer: Chart.js not loaded');
+        return;
+      }
+      const canvas = this.shadowRoot.getElementById('trend-bar-chart');
+      if (!canvas) return;
+      this._destroyChart('trendBar');
+      const ctx = canvas.getContext('2d');
+      const c = this._comparisonData;
+      if (!c) return;
+      const mode = this._comparePeriod;
+
+      const data = mode === 'w-w' ? c.weeklyTotals : c.monthlyTotals;
+      if (!data || data.length === 0) return;
+
+      const labels = data.map(d => d.label);
+      const values = data.map(d => d.kwh);
+      const colors = values.map((_, i) => i === values.length - 1 ? 'rgba(59,130,246,.8)' : 'rgba(148,163,184,.5)');
+
+      this._charts['trendBar'] = new window.Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{ label: 'kWh', data: values, backgroundColor: colors, borderRadius: 4, borderSkipped: false }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => `${parseFloat(c.formattedValue).toFixed(1)} kWh` } } },
+          scales: { y: { beginAtZero: true }, x: {} }
+        }
+      });
+    } catch (error) {
+      console.error('Error drawing trend bar chart:', error);
+    }
+  }
+
+
+  _renderRecommendations() {
+    const container = this.shadowRoot.getElementById('recommendations-list');
+    container.innerHTML = this._recommendations.map(rec => `
+      <div class="recommendation ${rec.impact}">
+        <div class="rec-icon">${rec.icon}</div>
+        <div class="rec-content">
+          <div class="rec-title">${rec.title}</div>
+          <div class="rec-description">${rec.description}</div>
+          <div class="rec-footer">
+            <div class="savings-badge">Save ~${rec.savings}${this._config.currency || 'PLN'}/mo</div>
+            <div class="difficulty-badge">${rec.difficulty}</div>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  _calculateTodayUsage() {
+    return this._energyData.reduce((a, b) => a + b, 0);
+  }
+
+  _calculateTodayCost() {
+    // For today or when displaying single-day data, use current day
+    // For ranges, average across typical week pattern
+    let dow = new Date().getDay();
+    if (this._timeRange !== 'today') {
+      dow = 2; // Use Wednesday as typical day for range calculations
+    }
+    let cost = 0;
+    this._energyData.forEach((kwh, hour) => {
+      cost += kwh * this._getRate(hour, dow);
+    });
+    return cost;
+  }
+
+  _calculatePotentialSavings() {
+    const mode = this._config.energy_tariff_mode || 'flat';
+    if (mode === 'flat') return 0;
+    let dow = new Date().getDay();
+    if (this._timeRange !== 'today') {
+      dow = 2; // Use Wednesday as typical day for range calculations
+    }
+    const nightStart = this._config.energy_night_hour_start || 22;
+    const dayStart = this._config.energy_day_hour_start || 6;
+    let savings = 0;
+    this._energyData.forEach((kwh, hour) => {
+      const currentRate = this._getRate(hour, dow);
+      const nightRate = this._getRate(nightStart, dow);
+      if (currentRate > nightRate) {
+        savings += kwh * (currentRate - nightRate) * 0.3;
+      }
+    });
+    return savings;
+  }
+
+  _getPeakHour() {
+    return this._energyData.indexOf(Math.max(...this._energyData));
+  }
+
+  _calculateEfficiencyScore() {
+    const peakRatio = this._calculatePeakRatio();
+    const baseScore = 100;
+    const peakPenalty = Math.min(30, peakRatio * 5);
+    return Math.max(30, baseScore - peakPenalty).toFixed(0);
+  }
+
+  _calculatePeakRatio() {
+    const peakStart = this._config.peak_hours?.start || 6;
+    const peakEnd = this._config.peak_hours?.end || 22;
+    const peakUsage = this._energyData.slice(peakStart, peakEnd).reduce((a, b) => a + b, 0) / (peakEnd - peakStart);
+    const offPeakUsage = this._energyData.slice(0, peakStart).concat(this._energyData.slice(peakEnd)).reduce((a, b) => a + b, 0) / (24 - (peakEnd - peakStart));
+    return peakUsage / offPeakUsage;
+  }
+  // --- Pagination helper ---
+  _renderPagination(tabName, totalItems) {
+    if (!this._currentPage[tabName]) this._currentPage[tabName] = 1;
+    const pageSize = this._pageSize;
+    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+    const page = Math.min(this._currentPage[tabName], totalPages);
+    this._currentPage[tabName] = page;
+    return `
+      <div class="pagination">
+        <button class="pagination-btn" data-page-tab="${tabName}" data-page="${page - 1}" ${page <= 1 ? 'disabled' : ''}>&#8249; Prev</button>
+        <span class="pagination-info">${page} / ${totalPages} (${totalItems})</span>
+        <button class="pagination-btn" data-page-tab="${tabName}" data-page="${page + 1}" ${page >= totalPages ? 'disabled' : ''}>Next &#8250;</button>
+        <select class="page-size-select" data-page-tab="${tabName}" data-action="page-size">
+          ${[10,15,25,50].map(s => `<option value="${s}" ${s === pageSize ? 'selected' : ''}>${s}/page</option>`).join('')}
+        </select>
+      </div>`;
+  }
+
+  _paginateItems(items, tabName) {
+    if (!this._currentPage[tabName]) this._currentPage[tabName] = 1;
+    const start = (this._currentPage[tabName] - 1) * this._pageSize;
+    return items.slice(start, start + this._pageSize);
+  }
+
+  _setupPaginationListeners() {
+    if (!this.shadowRoot) return;
+    this.shadowRoot.querySelectorAll('.pagination-btn:not([disabled])').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const tab = e.target.dataset.pageTab;
+        const page = parseInt(e.target.dataset.page);
+        if (tab && page > 0) {
+          this._currentPage[tab] = page;
+          this._render ? this._render() : (this.render ? this.render() : this.renderCard());
+        }
+      });
+    });
+    this.shadowRoot.querySelectorAll('.page-size-select').forEach(sel => {
+      sel.addEventListener('change', (e) => {
+        this._pageSize = parseInt(e.target.value);
+        // Reset all pages to 1
+        Object.keys(this._currentPage).forEach(k => this._currentPage[k] = 1);
+        this._render ? this._render() : (this.render ? this.render() : this.renderCard());
+      });
+    });
+  }
+  // --- Seeded random for stable data ---
+  _seededRandom(seed) {
+    let h = 0;
+    for (let i = 0; i < seed.length; i++) {
+      h = Math.imul(31, h) + seed.charCodeAt(i) | 0;
+    }
+    return () => {
+      h = Math.imul(h ^ (h >>> 16), 2246822507);
+      h = Math.imul(h ^ (h >>> 13), 3266489909);
+      h ^= h >>> 16;
+      return (h >>> 0) / 4294967296;
+    };
+  }
+  // --- Canvas size fix for Bento CSS ---
+  _fixCanvasSize(canvas) {
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) {
+      canvas.width = rect.width;
+      canvas.height = rect.height;
+    }
+  }
+
+  setActiveTab(tabId) {
+    this._currentTab = tabId;
+    this._render();
+  }
+
+}
+
+if (!customElements.get('ha-energy-optimizer')) { customElements.define('ha-energy-optimizer', HaEnergyOptimizer); }
+class HaEnergyOptimizerEditor extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: 'open' });
+    this._config = {};
+  }
+  setConfig(config) {
+    this._config = { ...config };
+    this._render();
+  }
+  _dispatch() {
+    this.dispatchEvent(new CustomEvent('config-changed', { detail: { config: this._config }, bubbles: true, composed: true }));
+  }
+  _render() {
+    this.shadowRoot.innerHTML = `
+      <style>
+            :host { display:block; padding:16px; }
+            h3 { margin:0 0 16px; font-size:15px; font-weight:600; color:var(--bento-text, var(--primary-text-color,#1e293b)); }
+            input { outline:none; transition:border-color .2s; }
+            input:focus { border-color:var(--bento-primary, var(--primary-color,#3b82f6)); }
+        </style>
+      <h3>Energy Optimizer</h3>
+            <div style="margin-bottom:12px;">
+              <label style="display:block;font-weight:500;margin-bottom:4px;font-size:13px;">Title</label>
+              <input type="text" id="cf_title" value="${_esc(this._config?.title || 'Energy Optimizer')}"
+                style="width:100%;padding:8px 12px;border:1px solid var(--divider-color,#e2e8f0);border-radius:8px;background:var(--card-background-color,#fff);color:var(--primary-text-color,#1e293b);font-size:14px;box-sizing:border-box;">
+            </div>
+            <div style="margin-bottom:12px;">
+              <label style="display:block;font-weight:500;margin-bottom:4px;font-size:13px;">Currency</label>
+              <input type="text" id="cf_currency" value="${_esc(this._config?.currency || 'PLN')}"
+                style="width:100%;padding:8px 12px;border:1px solid var(--divider-color,#e2e8f0);border-radius:8px;background:var(--card-background-color,#fff);color:var(--primary-text-color,#1e293b);font-size:14px;box-sizing:border-box;">
+            </div>
+    `;
+        const f_title = this.shadowRoot.querySelector('#cf_title');
+        if (f_title) f_title.addEventListener('input', (e) => {
+          this._config = { ...this._config, title: e.target.value };
+          this._dispatch();
+        });
+        const f_currency = this.shadowRoot.querySelector('#cf_currency');
+        if (f_currency) f_currency.addEventListener('input', (e) => {
+          this._config = { ...this._config, currency: e.target.value };
+          this._dispatch();
+        });
+  }
+  connectedCallback() { this._render(); }
+}
+if (!customElements.get('ha-energy-optimizer-editor')) { customElements.define('ha-energy-optimizer-editor', HaEnergyOptimizerEditor); }
+
+})();
+
+window.customCards = window.customCards || [];
+window.customCards.push({ type: 'ha-energy-optimizer', name: 'Energy Optimizer', description: 'Optimize energy consumption with peak/off-peak analysis', preview: false });

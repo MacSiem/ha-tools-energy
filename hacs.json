@@ -1,0 +1,7 @@
+{
+  "name": "HA Tools \u2014 Energy",
+  "filename": "ha-tools-energy.js",
+  "render_readme": true,
+  "content_in_root": true,
+  "homeassistant": "2024.1.0"
+}
